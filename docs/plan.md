@@ -25,10 +25,16 @@ the cross-tenant identity setup before any real code is written.
 
 ## Phase 1 – Azure infrastructure (0.5 d)
 
-- [ ] `infra/main.bicep`: RG resources (App Service, UAMI, KV, Storage, App Insights; model deployment on the existing AOAI account).
-- [ ] RBAC: UAMI → `Cognitive Services OpenAI User`, `Storage Blob Data Contributor`, `Key Vault Secrets User`.
-- [ ] GitHub Actions OIDC federated credential (app registration in the backend tenant), workflow `infra.yml`.
-- [ ] Deploy; verify `https://<app>.azurewebsites.net/healthz`.
+- [x] `infra/main.bicep` (subscription scope) + `modules/core.bicep`: RG `dsc-p1-rg-agent365`, App Service B1 Linux (.NET 10),
+      UAMI, Key Vault (RBAC), Storage (no shared key), Log Analytics + App Insights.
+- [x] `modules/openai-deployment.bicep`: deployment `agent365-chat` (gpt-5.4-mini, GlobalStandard 50) on the existing AOAI account.
+- [x] RBAC: app UAMI → `Cognitive Services OpenAI User`, `Storage Blob Data Contributor`, `Key Vault Secrets User`.
+- [x] Blueprint secret rotated: new secret created directly into Key Vault (`blueprint-client-secret`), CLI-shown secret deleted.
+      App settings reference it via Key Vault reference.
+- [x] GitHub OIDC: user-assigned identity `dsc-p1-github-agent365-uaid` with federated credential
+      `repo:fiddi/agent365-demo:environment:demo` (Website Contributor on the web app); secrets in GitHub environment `demo`.
+- [x] Workflows: `ci.yml` (build + bicep + placeholder check), `deploy.yml` (publish → App Service, health check).
+- [x] Deploy with `infra/deploy.sh` (reads `.env`); `infra/deploy.sh what-if` for a dry run.
 
 ## Phase 2 – Agent skeleton (1 d)
 
