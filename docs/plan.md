@@ -38,12 +38,16 @@ the cross-tenant identity setup before any real code is written.
 
 ## Phase 2 – Agent skeleton (1 d)
 
-- [ ] `src/DemoAgent` from Agent 365 .NET sample (AI teammate template).
-- [ ] `/api/messages` with Agents SDK JWT validation; health endpoint.
-- [ ] Echo handler for Teams messages; Azure OpenAI chat via MI.
-- [ ] Local test with Agents Playground (`test-local` skill).
-- [ ] Workflow `app.yml`: build, test, deploy to App Service.
-- [ ] Register messaging endpoint on blueprint: `a365 setup blueprint --endpoint-only <url>/api/messages`.
+- [x] `src/DemoAgent` from Agent 365 .NET sample (AI teammate template) – done in Phase 0.
+- [x] `/api/messages` requires a valid Agents SDK JWT outside Development/Playground (401 for anonymous); `/api/health` → 200.
+- [x] Azure OpenAI chat via user-assigned MI (`AIServices__AzureOpenAI__ManagedIdentityClientId`).
+- [x] Key Vault references for the blueprint secret resolved (refresh after secret creation, then restart).
+- [x] Local-only files (`appsettings.Development.json`, `a365*.json`) excluded from publish output.
+- [x] Deployed (zip deploy; GitHub `deploy.yml` does the same after merge to `main`).
+- [x] Messaging endpoint registered: `a365 setup blueprint --endpoint-only --messaging-endpoint https://<app>/api/messages`.
+      Note: the CLI re-stamps IDs into `appsettings.json` – run `git checkout -- src/DemoAgent/appsettings.json` afterwards.
+- [ ] Local test with Agents Playground (`test-local` skill) – optional.
+- [ ] Teams chat test – needs the agent instance (published app + instance request, Phase 4).
 
 **Exit:** chat with the agent in Teams (M365 tenant) returns LLM answers served from the backend.
 

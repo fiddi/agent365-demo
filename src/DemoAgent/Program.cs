@@ -116,10 +116,16 @@ app.UseAuthorization();
 
 
 // Map the /api/messages endpoint to the AgentApplication
-app.MapPost("/api/messages", async (HttpRequest request, HttpResponse response, IAgentHttpAdapter adapter, IAgent agent, CancellationToken cancellationToken) =>
+var messagesRoute = app.MapPost("/api/messages", async (HttpRequest request, HttpResponse response, IAgentHttpAdapter adapter, IAgent agent, CancellationToken cancellationToken) =>
 {
     await adapter.ProcessAsync(request, response, agent, cancellationToken);
 });
+
+// Outside local testing, only accept JWT-authenticated calls from the Agent 365 / Bot channels.
+if (!app.Environment.IsDevelopment() && app.Environment.EnvironmentName != "Playground")
+{
+    messagesRoute.RequireAuthorization();
+}
 
 // Health check endpoint for CI/CD pipelines and monitoring
 app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp = System.DateTime.UtcNow }));
