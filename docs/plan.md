@@ -19,7 +19,7 @@ the cross-tenant identity setup before any real code is written.
 
 ## Phase 1 – Azure infrastructure (0.5 d)
 
-- [ ] `infra/main.bicep`: RG resources (App Service, UAMI, AOAI + deployment, KV, Storage, App Insights).
+- [ ] `infra/main.bicep`: RG resources (App Service, UAMI, KV, Storage, App Insights; model deployment on the existing AOAI account).
 - [ ] RBAC: UAMI → `Cognitive Services OpenAI User`, `Storage Blob Data Contributor`, `Key Vault Secrets User`.
 - [ ] GitHub Actions OIDC federated credential (app registration in the backend tenant), workflow `infra.yml`.
 - [ ] Deploy; verify `https://<app>.azurewebsites.net/healthz`.
