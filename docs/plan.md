@@ -53,13 +53,17 @@ the cross-tenant identity setup before any real code is written.
 
 ## Phase 3 – Capabilities (1.5 d)
 
-- [ ] **C1** Email notification handler (incoming mail → activity).
-- [ ] **C2** Work IQ Mail MCP: reply / send mail as agent user; recipient domain guardrail.
-- [ ] **C3** Work IQ OneDrive/SharePoint MCP: search + read file content (text, docx, pdf).
-- [ ] `a365 develop add-mcp-servers` → ToolingManifest; `a365 setup permissions mcp`; admin consent.
-- [ ] Tool allow-list + system prompt (persona, guardrails).
-- [ ] **C4** Teams: 1:1, group chat, @mention; welcome message on install.
-- [ ] Lifecycle handler (agent user created → hello email to sponsor).
+- [x] **C1** Email notification handler (`OnAgenticEmailNotification`): replies via `EmailResponse` to internal senders only; external senders are ignored.
+- [x] **C2** Work IQ Mail MCP + **code-level recipient guard** (`Tools/RecipientGuard.cs`): send/reply/forward tools are wrapped and
+      blocked if any address is outside `Guardrails:AllowedEmailDomains`. The prompt says the same, but the guard also holds under prompt injection.
+      Limitation: a reply by message ID goes to the original sender – covered because external senders are never answered.
+- [x] **C3** `mcp_OneDriveRemoteServer` + `mcp_SharePointRemoteServer` added to ToolingManifest.
+- [x] `a365 setup permissions mcp` (provisioned 2 missing Agent 365 Tools service principals; admin consent already granted).
+- [x] System prompt: persona Ava, user's language, guardrails; email content treated as data.
+- [x] **C4** Welcome on members added, hire message on install.
+- [x] **Proactive:** on hire, Ava emails a short welcome to the person who hired her (internal addresses only, best effort).
+- [x] SharePoint site **Agent365 Demo** (M365 group `agent365demo`) with sample documents in `Demo/` (`demo/sample-docs`).
+- [ ] Add Ava's agent user as member of the group once it exists (Phase 4).
 
 ## Phase 4 – Publish to Teams & Copilot (0.5 d)
 
