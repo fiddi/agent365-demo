@@ -98,6 +98,27 @@ def main():
         print("create agent user:", st, u.get("userPrincipalName") if st < 300 else u)
         if st >= 300: sys.exit(1)
 
+    # 3) Delegated consent for the agent identity: mirror the blueprint's admin grants
+    #    (the admin center's "Accept permissions" step normally does this).
+    if not DRY:
+        st, bpsp = http("GET", f"https://graph.microsoft.com/v1.0/servicePrincipals(appId='{blueprint}')?$select=id", adm)
+        st, bpg = http("GET", f"https://graph.microsoft.com/v1.0/oauth2PermissionGrants?$filter=clientId eq '{bpsp['id']}'".replace(" ", "%20"), adm)
+        st, aig = http("GET", f"https://graph.microsoft.com/v1.0/oauth2PermissionGrants?$filter=clientId eq '{ai['id']}'".replace(" ", "%20"), adm)
+        have = {g["resourceId"] for g in aig.get("value", [])}
+        wanted = {g["resourceId"]: g["scope"].strip() for g in bpg.get("value", [])}
+        # Work IQ ODSP MCP servers (public Microsoft app IDs) need Tools.ListInvoke.All
+        for app in ("b0b2a2bb-6361-4549-a00c-a018417eb8e2", "292cff14-c0e8-4116-9e3b-99934ae05766"):
+            st, sp = http("GET", f"https://graph.microsoft.com/v1.0/servicePrincipals(appId='{app}')?$select=id", adm)
+            if st == 200: wanted.setdefault(sp["id"], "Tools.ListInvoke.All")
+        for rid, scope in wanted.items():
+            if rid in have: continue
+            st, _ = http("POST", "https://graph.microsoft.com/v1.0/oauth2PermissionGrants", adm,
+                         {"clientId": ai["id"], "consentType": "AllPrincipals", "resourceId": rid, "scope": scope})
+            print("grant", short(rid), st)
+
+    # 4) Licenses (assign manually or extend here):
+    #    AGENT_365, Office 365 E5 (no Teams), M365 Copilot – see docs/plan.md Phase 4.
+
     # write the agent identity id into .env for later steps
     if not DRY and ai.get("id") and env.get("A365_AGENT_ID") != ai["id"]:
         lines = open(os.path.join(ROOT, ".env"), encoding="utf-8").read().splitlines()
