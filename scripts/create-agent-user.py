@@ -106,10 +106,20 @@ def main():
         st, aig = http("GET", f"https://graph.microsoft.com/v1.0/oauth2PermissionGrants?$filter=clientId eq '{ai['id']}'".replace(" ", "%20"), adm)
         have = {g["resourceId"] for g in aig.get("value", [])}
         wanted = {g["resourceId"]: g["scope"].strip() for g in bpg.get("value", [])}
-        # Work IQ ODSP MCP servers (public Microsoft app IDs) need Tools.ListInvoke.All
-        for app in ("b0b2a2bb-6361-4549-a00c-a018417eb8e2", "292cff14-c0e8-4116-9e3b-99934ae05766"):
+        # Work IQ MCP servers (public Microsoft app IDs: Mail, OneDrive, SharePoint) all need
+        # Tools.ListInvoke.All – the blueprint's Mail grant only has McpServers.Mail.All.
+        for app in ("ea9ffc3e-8a23-4a7d-836d-234d7c7565c1", "b0b2a2bb-6361-4549-a00c-a018417eb8e2",
+                    "292cff14-c0e8-4116-9e3b-99934ae05766"):
             st, sp = http("GET", f"https://graph.microsoft.com/v1.0/servicePrincipals(appId='{app}')?$select=id", adm)
-            if st == 200: wanted.setdefault(sp["id"], "Tools.ListInvoke.All")
+            if st == 200:
+                scopes = set(wanted.get(sp["id"], "").split()) | {"Tools.ListInvoke.All"}
+                wanted[sp["id"]] = " ".join(sorted(scopes))
+        for g in aig.get("value", []):
+            missing = set(wanted.get(g["resourceId"], "").split()) - set(g["scope"].split())
+            if missing:
+                st, _ = http("PATCH", f"https://graph.microsoft.com/v1.0/oauth2PermissionGrants/{g['id']}", adm,
+                             {"scope": " ".join(sorted(set(g["scope"].split()) | missing))})
+                print("grant update", short(g["resourceId"]), st)
         for rid, scope in wanted.items():
             if rid in have: continue
             st, _ = http("POST", "https://graph.microsoft.com/v1.0/oauth2PermissionGrants", adm,
