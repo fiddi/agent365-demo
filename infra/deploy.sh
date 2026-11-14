@@ -17,6 +17,7 @@ az deployment sub "${cmd[0]}" "${cmd[@]:1}" \
     a365TenantId="$A365_TENANT_ID" \
     blueprintClientId="$A365_BLUEPRINT_ID" \
     agentId="${A365_AGENT_ID:-}" \
+    agentUpn="${AGENT_UPN:-}" \
     openAiAccountName="$AZURE_OPENAI_ACCOUNT" \
     openAiResourceGroup="$AZURE_OPENAI_RESOURCE_GROUP" \
     deployerObjectId="$deployer"

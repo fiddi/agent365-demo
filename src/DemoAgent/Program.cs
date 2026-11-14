@@ -48,6 +48,13 @@ builder.UseMicrosoftOpenTelemetry(o =>
 
 builder.Services.AddControllers();
 builder.Services.AddHttpClient("WebClient", client => client.Timeout = TimeSpan.FromSeconds(600));
+
+// Optional diagnostics: log grant_type/scope of failed token requests (no secrets).
+if (builder.Configuration.GetValue<bool>("Diagnostics:LogTokenScopes"))
+{
+    builder.Services.AddTransient<DemoAgent.Diagnostics.TokenScopeLoggingHandler>();
+    builder.Services.AddHttpClient("MSALClientFactory").AddHttpMessageHandler<DemoAgent.Diagnostics.TokenScopeLoggingHandler>();
+}
 builder.Services.AddHttpContextAccessor();
 builder.Logging.AddConsole();
 

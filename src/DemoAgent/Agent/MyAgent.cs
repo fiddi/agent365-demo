@@ -425,6 +425,27 @@ namespace DemoAgent.Agent
                 return;
             }
 
+            // Loop guard: never answer our own mails (a reply to ourselves would trigger another
+            // notification) and never answer auto-replies / bounces.
+            var selfEmail = TryGetEmail(turnContext.Activity.Recipient) ?? _configuration?["Agent:Upn"];
+            var from = turnContext.Activity.From;
+            var self = turnContext.Activity.Recipient;
+            bool sentBySelf =
+                (senderEmail is not null && selfEmail is not null && senderEmail.Equals(selfEmail, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(from?.AadObjectId) && from.AadObjectId == self?.AadObjectId) ||
+                (!string.IsNullOrEmpty(from?.Id) && from.Id == self?.Id);
+            if (sentBySelf)
+            {
+                _logger?.LogInformation("Ignoring email sent by the agent itself.");
+                return;
+            }
+            if (System.Text.RegularExpressions.Regex.IsMatch(email?.HtmlBody ?? string.Empty,
+                    @"(?i)automatic reply|automatische antwort|undeliverable|unzustellbar|delivery has failed"))
+            {
+                _logger?.LogInformation("Ignoring auto-reply / bounce.");
+                return;
+            }
+
             var body = email?.HtmlBody ?? turnContext.Activity.Text ?? string.Empty;
             if (body.Length > 20000) body = body[..20000];
 

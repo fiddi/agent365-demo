@@ -24,6 +24,9 @@ param chatModelName string = 'gpt-5.4-mini'
 param chatModelVersion string = '2026-03-17'
 param chatCapacity int = 50
 
+@description('UPN of the agent user (loop guard: never answer own mails)')
+param agentUpn string = ''
+
 @description('GitHub repo (owner/name) allowed to deploy via OIDC')
 param githubRepo string = 'fiddi/agent365-demo'
 
@@ -58,6 +61,7 @@ module core 'modules/core.bicep' = {
     openAiEndpoint: 'https://${openAiAccountName}.openai.azure.com/'
     chatDeploymentName: chatDeploymentName
     githubRepo: githubRepo
+    agentUpn: agentUpn
     deployerObjectId: deployerObjectId
   }
 }

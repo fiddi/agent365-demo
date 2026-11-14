@@ -9,6 +9,7 @@ param blueprintClientId string
 param agentId string
 param openAiEndpoint string
 param chatDeploymentName string
+param agentUpn string = ''
 param githubRepo string
 param deployerObjectId string
 
@@ -181,7 +182,8 @@ resource app 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'Connections__ServiceConnection__Settings__AuthorityEndpoint', value: '${environment().authentication.loginEndpoint}${a365TenantId}' }
         { name: 'Connections__ServiceConnection__Settings__ClientId', value: blueprintClientId }
         { name: 'Connections__ServiceConnection__Settings__ClientSecret', value: kvRef }
-        { name: 'Connections__ServiceConnection__Settings__Scopes__0', value: '${blueprintClientId}/.default' }
+        // Outbound replies go through the Messaging Bot API (public Microsoft app ID)
+        { name: 'Connections__ServiceConnection__Settings__Scopes__0', value: '5a807f24-c9de-44ee-a3a7-329e88a00ffc/.default' }
         { name: 'Connections__ServiceConnection__Settings__AgentId', value: agentId }
         // Incoming token validation
         { name: 'TokenValidation__Enabled', value: 'true' }
@@ -196,6 +198,7 @@ resource app 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'Agent365Observability__AgentId', value: agentId }
         { name: 'Agent365Observability__UseManagedIdentity', value: 'false' }
         { name: 'EnableAgent365Exporter', value: 'false' }
+        { name: 'Agent__Upn', value: agentUpn }
         // State storage
         { name: 'Storage__BlobServiceUri', value: st.properties.primaryEndpoints.blob }
         { name: 'Storage__ContainerName', value: stateContainer.name }
