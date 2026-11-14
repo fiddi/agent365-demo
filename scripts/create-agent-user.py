@@ -114,6 +114,10 @@ def main():
             if st == 200:
                 scopes = set(wanted.get(sp["id"], "").split()) | {"Tools.ListInvoke.All"}
                 wanted[sp["id"]] = " ".join(sorted(scopes))
+        # The Agents SDK also requests Graph User.Read for the agent user (blueprint grant has only User.Read.All).
+        st, graph = http("GET", "https://graph.microsoft.com/v1.0/servicePrincipals(appId='00000003-0000-0000-c000-000000000000')?$select=id", adm)
+        if st == 200:
+            wanted[graph["id"]] = " ".join(sorted(set(wanted.get(graph["id"], "").split()) | {"User.Read"}))
         for g in aig.get("value", []):
             missing = set(wanted.get(g["resourceId"], "").split()) - set(g["scope"].split())
             if missing:
