@@ -5,15 +5,21 @@ the cross-tenant identity setup before any real code is written.
 
 ## Phase 0 – Prerequisites & spike (0.5–1 d)
 
-- [ ] Confirm Frontier preview is active in M365 tenant; Agent 365 enabled in admin center.
-- [ ] Confirm licenses: Microsoft 365 Copilot (for agent user + Work IQ), E7 or Agent 365 for ≥1 user (observability).
-- [ ] Global Admin of the M365 tenant available for consent; Agent ID Developer role for the builder.
-- [ ] Azure backend subscription with Owner/Contributor + User Access Administrator on the RG.
-- [ ] Azure OpenAI quota for the chosen model in the chosen region.
-- [ ] Update `a365` CLI (`dotnet tool update -g Microsoft.Agents.A365.DevTools.Cli`, currently 1.1.226 → 2.x).
-- [ ] Install Agent 365 skills: `gh skill add microsoft/agent365-skills`.
-- [ ] **Spike:** create multitenant blueprint in the backend tenant, consent in the M365 tenant, create agent instance + agent user.
-      If not supported → switch to fallback (single-tenant blueprint in the M365 tenant with cross-tenant MI FIC). Record result as ADR.
+- [x] Frontier preview / Agent 365 enabled in M365 tenant (CLI can't verify automatically – warning only).
+- [x] Licenses checked: Agent 365 (25 free), Copilot (3 free), Office E5 (6 free); **no free Teams license** (see R1).
+- [x] Global Admin of the M365 tenant used for consent (dsc@fiddi.ch).
+- [x] Azure backend subscription access (Owner) confirmed.
+- [x] Reuse existing Azure OpenAI account (Switzerland North); new deployment `agent365-chat` in Phase 1.
+- [x] `a365` CLI updated to 2.0.4.
+- [x] Agent 365 skills installed (user scope).
+- [x] Sample agent (.NET 10, Agent Framework) imported to `src/DemoAgent`, persona "Ava", keyless AOAI auth.
+- [x] Pre-commit hook blocks tenant/subscription/blueprint IDs and client secrets.
+- [x] **Spike result:** blueprint `Ava Blueprint` created in the **M365 tenant** (multitenant flag) via
+      `a365 setup all --agent-name Ava --aiteammate --m365`; inheritable permissions + tenant-wide admin consent granted.
+      Backend tenant has no Agent 365 → identity lives in the M365 tenant, backend authenticates with
+      blueprint secret from Key Vault (later: cross-tenant MI FIC). See architecture AD "identity placement".
+- [ ] Rotate the blueprint secret into Key Vault (first secret was shown in CLI output) – Phase 1.
+- [ ] Agent instance + agent user `ava@fiddi.ch` – created after publish/instance request (Phase 4 flow).
 
 **Exit:** agent user exists in the M365 tenant and has a mailbox; chosen identity variant documented.
 

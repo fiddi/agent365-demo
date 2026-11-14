@@ -1,0 +1,27 @@
+#!/bin/sh
+# Blocks commits that contain environment-specific IDs (tenant, subscription, blueprint, agent IDs)
+# or client secrets. Sources: local .env, a365 generated config and appsettings.Development.json
+# (all git-ignored).
+root=$(git rev-parse --show-toplevel)
+files=$(find "$root" \( -name 'a365.generated.config.json' -o -name 'appsettings.Development.json' \) \
+  -not -path '*/node_modules/*' -not -path '*/bin/*' -not -path '*/obj/*' 2>/dev/null)
+ids=$(cat "$root/.env" $files 2>/dev/null \
+  | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | sort -u   | grep -viFf "$root/.githooks/public-ids" )
+secrets=$(cat $files 2>/dev/null \
+  | grep -oiE '"[A-Za-z]*Secret"[[:space:]]*:[[:space:]]*"[^"]{8,}"' | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/' | sort -u)
+[ -z "$ids$secrets" ] && exit 0
+added=$(git diff --cached -U0 --no-color | grep '^+' | grep -v '^+++')
+for id in $ids; do
+  if printf '%s' "$added" | grep -qi "$id"; then
+    echo "pre-commit: blocked - staged changes contain an environment ID (${id%%-*}-...)." >&2
+    echo "Move it to .env, appsettings.Development.json or GitHub secrets." >&2
+    exit 1
+  fi
+done
+for s in $secrets; do
+  if printf '%s' "$added" | grep -qF "$s"; then
+    echo "pre-commit: blocked - staged changes contain a client secret. Use Key Vault / app settings." >&2
+    exit 1
+  fi
+done
+exit 0
