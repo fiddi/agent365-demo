@@ -1,0 +1,12 @@
+{
+  "tenantId": "${A365_TENANT_ID}",
+  "subscriptionId": "${AZURE_SUBSCRIPTION_ID}",
+  "resourceGroup": "${AZURE_RESOURCE_GROUP}",
+  "location": "${AZURE_LOCATION}",
+  "environment": "prod",
+  "needDeployment": false,
+  "messagingEndpoint": "https://${APP_HOSTNAME}/api/messages",
+  "agentIdentityDisplayName": "${AGENT_DISPLAY_NAME}",
+  "agentUserPrincipalName": "${AGENT_UPN}",
+  "agentUserDisplayName": "${AGENT_DISPLAY_NAME}"
+}

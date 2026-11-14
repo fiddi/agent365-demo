@@ -1,0 +1,16 @@
+# Agent 365 CLI
+a365.config.json
+a365.generated.config.json
+*.secret*
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Env / local
+.env
+appsettings.Development.json
+.vscode/
+.idea/
