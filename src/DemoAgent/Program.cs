@@ -21,7 +21,8 @@ using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddUserSecrets(Assembly.GetExecutingAssembly());
-using var observabilityTokens = ObservabilityAppTokenFactory.CreateIfEnabled(builder.Configuration);
+// One observability token provider per agent instance (all instances of the blueprint).
+using var observabilityTokens = MultiInstanceObservabilityTokenResolver.CreateIfEnabled(builder.Configuration);
 var agent365ExporterEnabled = observabilityTokens is not null;
 
 // Configure OpenTelemetry distro — Console exporter only in Development to avoid PII leaks

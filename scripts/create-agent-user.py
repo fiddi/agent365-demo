@@ -1,14 +1,28 @@
-"""Create Ava's agent identity and agent user via Microsoft Graph (workaround when the
-M365 admin center activation is blocked). Reads IDs/secrets only from git-ignored local files
-and never prints them.
+"""Create an agent instance of the blueprint – agent identity + agent user – via Microsoft Graph
+(workaround while the M365 admin center activation is blocked), mirror consents, assign licenses
+and add it to the demo group. Reads IDs/secrets only from git-ignored local files, never prints them.
 
-Usage: python -I scripts/create-agent-user.py [--dry-run]
+Usage:
+  python -I scripts/create-agent-user.py                      # default instance from .env (Ava)
+  python -I scripts/create-agent-user.py --name "Kwema Manseh" --upn kwema.manseh@contoso.com
+  options: --dry-run  --no-licenses  --no-group
 Requires: az login with an admin of the M365 tenant (default account = M365 tenant subscription).
 """
-import json, os, subprocess, sys, urllib.parse, urllib.request
+import json, os, subprocess, sys, time, urllib.parse, urllib.request
+
+import argparse
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DRY = "--dry-run" in sys.argv
+ARGS = argparse.ArgumentParser()
+ARGS.add_argument("--name"); ARGS.add_argument("--upn")
+ARGS.add_argument("--dry-run", action="store_true")
+ARGS.add_argument("--no-licenses", action="store_true")
+ARGS.add_argument("--no-group", action="store_true")
+ARGS = ARGS.parse_args()
+DRY = ARGS.dry_run
+# Licenses for an agent user (SKU part numbers; resolved to skuIds in the tenant).
+LICENSES = ["AGENT_365", "Office_365_w/o_Teams_Bundle_E5", "M365_COPILOT_SPECIAL_BENEFIT_PROGRAMS"]
+DEMO_GROUP = "agent365demo"
 
 
 def load_env():
@@ -52,7 +66,11 @@ def short(x):
 def main():
     env = load_env()
     tenant, blueprint = env["A365_TENANT_ID"], env["A365_BLUEPRINT_ID"]
-    upn, name = env.get("AGENT_UPN") or "ava@fiddi.ch", env.get("AGENT_DISPLAY_NAME") or "Ava"
+    default_instance = not (ARGS.name or ARGS.upn)
+    if bool(ARGS.name) != bool(ARGS.upn):
+        print("--name and --upn must be given together"); sys.exit(2)
+    upn = ARGS.upn or env.get("AGENT_UPN") or "ava@fiddi.ch"
+    name = ARGS.name or env.get("AGENT_DISPLAY_NAME") or "Ava"
     dev = json.load(open(os.path.join(ROOT, "src/DemoAgent/appsettings.Development.json"), encoding="utf-8"))
     secret = dev["Connections"]["ServiceConnection"]["Settings"]["ClientSecret"]
 
@@ -99,7 +117,10 @@ def main():
         st, u = http("POST", "https://graph.microsoft.com/beta/users", bp, body)
         if st >= 300:
             print("create agent user with blueprint token:", st, u.get("error", {}).get("message"))
-            st, u = http("POST", "https://graph.microsoft.com/beta/users", adm, body)
+            for attempt in range(8):  # a just-created agent identity needs a moment to replicate
+                st, u = http("POST", "https://graph.microsoft.com/beta/users", adm, body)
+                if st < 300 or "IdentityParent does not exist" not in json.dumps(u): break
+                print("  agent identity not replicated yet – retrying in 15 s"); time.sleep(15)
         print("create agent user:", st, u.get("userPrincipalName") if st < 300 else u)
         if st >= 300: sys.exit(1)
 
@@ -150,11 +171,39 @@ def main():
             must(st, res, f"create grant {short(rid)}")
             print("grant", short(rid), st)
 
-    # 4) Licenses (assign manually or extend here):
-    #    AGENT_365, Office 365 E5 (no Teams), M365 Copilot – see docs/plan.md Phase 4.
+    # 4) Licenses: Agent 365, Office 365 E5 (no Teams) for mailbox/OneDrive, M365 Copilot for Work IQ.
+    if not DRY and not ARGS.no_licenses:
+        st, skus = http("GET", "https://graph.microsoft.com/v1.0/subscribedSkus?$select=skuId,skuPartNumber,prepaidUnits,consumedUnits", adm)
+        must(st, skus, "read subscribed SKUs")
+        st, lic = http("GET", f"https://graph.microsoft.com/v1.0/users/{urllib.parse.quote(upn)}/licenseDetails?$select=skuPartNumber", adm)
+        assigned = {l["skuPartNumber"] for l in must(st, lic, "read user licenses").get("value", [])}
+        add = []
+        for part in LICENSES:
+            if part in assigned: continue
+            s = next((s for s in skus["value"] if s["skuPartNumber"] == part), None)
+            if not s or s["prepaidUnits"]["enabled"] - s["consumedUnits"] < 1:
+                print(f"ABORT: no free {part} license"); sys.exit(1)
+            add.append({"skuId": s["skuId"], "disabledPlans": []})
+        if add:
+            st, res = http("POST", f"https://graph.microsoft.com/v1.0/users/{urllib.parse.quote(upn)}/assignLicense", adm,
+                           {"addLicenses": add, "removeLicenses": []})
+            must(st, res, "assign licenses")
+        print("licenses:", "assigned " + str(len(add)) if add else "already assigned")
 
-    # write the agent identity id into .env for later steps
-    if not DRY and ai.get("id") and env.get("A365_AGENT_ID") != ai["id"]:
+    # 5) Membership in the demo group (SharePoint site with the sample documents).
+    if not DRY and not ARGS.no_group:
+        flt = urllib.parse.quote(f"mailNickname eq '{DEMO_GROUP}'")
+        st, grp = http("GET", f"https://graph.microsoft.com/v1.0/groups?$filter={flt}&$select=id", adm)
+        groups = must(st, grp, "find demo group").get("value", [])
+        if groups:
+            st, res = http("POST", f"https://graph.microsoft.com/v1.0/groups/{groups[0]['id']}/members/$ref", adm,
+                           {"@odata.id": f"https://graph.microsoft.com/v1.0/directoryObjects/{u['id']}"})
+            if st >= 300 and "already exist" not in json.dumps(res):
+                must(st, res, "add to demo group")
+            print("demo group: member")
+
+    # write the agent identity id into .env for later steps (default instance only)
+    if default_instance and not DRY and ai.get("id") and env.get("A365_AGENT_ID") != ai["id"]:
         lines = open(os.path.join(ROOT, ".env"), encoding="utf-8").read().splitlines()
         lines = [l for l in lines if not l.startswith("A365_AGENT_ID=")] + [f"A365_AGENT_ID={ai['id']}"]
         open(os.path.join(ROOT, ".env"), "w", encoding="utf-8").write("\n".join(lines) + "\n")

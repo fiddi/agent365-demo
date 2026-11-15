@@ -32,9 +32,11 @@ internal static class ObservabilityAppTokenFactory
             && ParseEnabled(dotNetStyle, "EnableAgent365Exporter");
     }
 
-    public static ObservabilityAppTokenProvider Create(IConfiguration configuration)
+    public static ObservabilityAppTokenProvider Create(IConfiguration configuration, string? agentIdOverride = null)
     {
-        var options = ObservabilityAppTokenOptions.FromConfiguration(key => configuration[key]);
+        // agentIdOverride: one provider per agent instance (all instances share the blueprint credential).
+        var options = ObservabilityAppTokenOptions.FromConfiguration(key =>
+            agentIdOverride is not null && key == "Agent365Observability:AgentId" ? agentIdOverride : configuration[key]);
         Func<CancellationToken, Task<string>>? assertionProvider = null;
         if (options.UseManagedIdentity)
         {

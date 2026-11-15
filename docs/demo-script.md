@@ -30,6 +30,9 @@ but it is confusing in a demo.
 3. Users → **Ava** (`ava@<domain>`). Show: it is an *agent user* – a real mailbox and OneDrive, but no
    password, MFA or sign-in of its own; it can only be used through its parent agent identity.
 
+4. Show a **second instance of the same blueprint**: *Kwema Manseh* (`kwema.manseh@<domain>`) – own
+   agent identity, own mailbox, own name in every reply, same backend and code.
+
 **Message:** agents get first-class identities that IT can see, govern and switch off – like employees.
 
 ## 2. Email – Ava reads her mail and answers (2 min)
