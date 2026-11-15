@@ -50,10 +50,15 @@ def main():
         },
         "grantControls": {"operator": "OR", "builtInControls": ["block"]},
     }
-    st, res = call("GET", base + "?$select=id,displayName,state", tok)
-    if st != 200:
-        print("list policies failed:", st, res.get("error", {}).get("message")); sys.exit(1)
-    existing = [p for p in res.get("value", []) if p["displayName"] == NAME]
+    # Collect all pages before matching, so an existing policy on a later page is updated, not duplicated.
+    policies, url = [], base + "?$select=id,displayName,state"
+    while url:
+        st, res = call("GET", url, tok)
+        if st != 200:
+            print("list policies failed:", st, res.get("error", {}).get("message")); sys.exit(1)
+        policies += res.get("value", [])
+        url = res.get("@odata.nextLink")
+    existing = [p for p in policies if p["displayName"] == NAME]
     if existing:
         st, res = call("PATCH", f"{base}/{existing[0]['id']}", tok, body)
         print("update policy:", st, res.get("error", {}).get("message", "") if st >= 300 else STATE)
