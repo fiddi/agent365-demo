@@ -4,7 +4,7 @@ and add it to the demo group. Reads IDs/secrets only from git-ignored local file
 
 Usage:
   python -I scripts/create-agent-user.py                      # default instance from .env (Ava)
-  python -I scripts/create-agent-user.py --name "Kwema Manseh" --upn kwema.manseh@contoso.com
+  python -I scripts/create-agent-user.py --name "Peter Helfer" --upn peter.helfer@contoso.com
   options: --dry-run  --no-licenses  --no-group
 Requires: az login with an admin of the M365 tenant (default account = M365 tenant subscription).
 """

@@ -26,7 +26,7 @@ namespace DemoAgent.Agent
 {
     public class MyAgent : AgentApplication
     {
-        // Every agent instance of the blueprint (e.g. "Ava", "Kwema Manseh") uses its own name,
+        // Every agent instance of the blueprint (e.g. "Ava", "Peter Helfer") uses its own name,
         // taken from its agent user (Activity.Recipient.Name).
         private static string AgentWelcomeMessage(string name) => $"Hi, I'm {name} – your AI teammate. I can read and send emails, find and summarise files in OneDrive and SharePoint, and chat here in Teams or in Copilot.";
         private static string AgentHireMessage(string name) => $"Thanks for hiring me! I'm {name}. You can chat with me here, email me, or ask me to find and summarise files. I'll send you a short welcome email as well.";
@@ -36,7 +36,7 @@ namespace DemoAgent.Agent
             var name = turnContext.Activity.Recipient?.Name;
             if (string.IsNullOrWhiteSpace(name) || Guid.TryParse(name, out _))
             {
-                // Fallback: derive from the agent user's address, e.g. kwema.manseh@contoso.com -> "Kwema Manseh".
+                // Fallback: derive from the agent user's address, e.g. peter.helfer@contoso.com -> "Peter Helfer".
                 var address = TryGetEmail(turnContext.Activity.Recipient);
                 name = address is null
                     ? _configuration?["Agent:DisplayName"]
