@@ -63,10 +63,18 @@ Token flow at runtime (Agentic-User mode):
 `agent user token` → call Work IQ MCP / Graph **as the agent user**.
 The Agent 365 SDK (`Microsoft.Agents.A365.*`) encapsulates this chain.
 
-> **Fallback (if cross-tenant blueprint is not yet supported for agent users in the preview):**
-> register the blueprint single-tenant in the M365 tenant and give it a federated credential that trusts
-> the backend managed identity from the backend tenant (cross-tenant MI-as-FIC). Backend code is unchanged;
-> only the config differs. This is verified in Phase 0 of the plan.
+> **Phase 0 finding (2026-11-14) – revised identity placement.** `a365 setup` creates the blueprint in
+> the tenant of the signed-in admin, and Agent 365 / Frontier is enabled only in the M365 tenant, not
+> in the backend tenant. Therefore:
+>
+> 1. The blueprint is created **in the M365 tenant** (by `a365 setup all --aiteammate --m365`) and
+>    marked multitenant so further customer tenants can be onboarded later.
+> 2. Credential, step 1: the CLI-generated client secret, stored **only** in the backend Key Vault
+>    (`dsc-p1-kv-agent365`) and read by the App Service via managed identity.
+> 3. Credential, step 2 (hardening): a federated identity credential on the blueprint that trusts the
+>    backend user-assigned managed identity across tenants; the secret is then deleted.
+>
+> The backend code stays the same in every variant; only configuration differs.
 
 ## 4. Component architecture
 
@@ -81,7 +89,7 @@ flowchart TB
     Gov["Agent 365 control plane<br/>Admin center · Defender · Purview"]
   end
 
-  subgraph Azure["Azure – backend subscription (rg-agent365-demo)"]
+  subgraph Azure["Azure – backend subscription (dsc-p1-rg-agent365)"]
     App["Agent backend<br/>ASP.NET Core .NET 10<br/>App Service (Linux)<br/>/api/messages"]
     AOAI["Azure OpenAI (Foundry)<br/>gpt-4.1 / gpt-5 deployment"]
     KV["Key Vault<br/>(config, optional certs)"]
@@ -170,32 +178,38 @@ All provisioned via Bicep (`infra/`), deployed via GitHub Actions (OIDC, no stor
 Because the agent lives in a different tenant, `a365.config.json` uses `"needDeployment": false`
 and the CLI only manages the blueprint/registration, not the Azure infrastructure.
 
-| Resource | SKU (demo) | Purpose |
-|----------|-----------|---------|
-| Resource group `rg-agent365-demo` | – | container |
-| App Service plan + Web App (Linux, .NET 10) | B1/P0v3 | hosts `/api/messages` (HTTPS, always-on) |
-| User-assigned managed identity | – | FIC to blueprint, access to AOAI / KV / Storage |
-| Azure OpenAI / Foundry project | Standard, 1 model deployment | reasoning |
-| Key Vault | Standard, RBAC | config; no secrets needed if FIC works |
-| Storage account | Standard LRS | turn / conversation state (blob) |
-| Log Analytics + Application Insights | PAYG | technical telemetry |
+Naming convention: `dsc-p1-<type>-agent365` (storage accounts without dashes: `dscp1stagent365`).
+Region: **Switzerland North** for everything. Tags: `workload=agent365`, `environment=demo`, `owner=dsc`.
 
-Region: Switzerland North for compute; Azure OpenAI in a region offering the chosen model
-(e.g. Switzerland North or Sweden Central) — see open questions.
+| Resource | Name | SKU (demo) | Purpose |
+|----------|------|-----------|---------|
+| Resource group | `dsc-p1-rg-agent365` | – | container |
+| App Service plan | `dsc-p1-asp-agent365` | B1 Linux | |
+| Web App (.NET 10) | `dsc-p1-app-agent365` | – | hosts `/api/messages` (HTTPS, always-on) |
+| User-assigned managed identity | `dsc-p1-app-agent365-uaid` | – | access to AOAI / KV / Storage; later FIC to blueprint |
+| Key Vault | `dsc-p1-kv-agent365` | Standard, RBAC | blueprint client secret (until FIC) |
+| Storage account | `dscp1stagent365` | Standard LRS | turn / conversation state (blob) |
+| Log Analytics | `dsc-p1-log-agent365` | PAYG | |
+| Application Insights | `dsc-p1-appi-agent365` | – | technical telemetry |
+| GitHub deploy identity | `dsc-p1-github-agent365-uaid` | – | OIDC federated credential for GitHub Actions |
+| Azure OpenAI (**existing, reused**) | `dsc-p1-model-eo3aez4xziljo` in `dsc-p1-rg-msftaihub` | S0 | new deployment `agent365-chat` (`gpt-5.4-mini`, GlobalStandard) |
 
 ## 6. Security & governance
 
-* **No secrets**: MI → FIC on blueprint; GitHub → Azure via OIDC; AOAI/Storage/KV via RBAC.
+* **No secrets in code or config**: blueprint secret only in Key Vault (target: replaced by FIC);
+  GitHub → Azure via OIDC; AOAI/Storage/KV via RBAC.
 * **Least privilege**: blueprint declares only Mail (read/send), Files.Read (ODSP), Teams chat;
   admin consent by a Global Admin of the M365 tenant.
 * **Tool allow-list** in code: the LLM can only call the enumerated MCP tools; no delete operations.
-* **Outbound email guardrail**: demo restricts recipients to the M365 tenant's domains.
+* **Outbound email guardrail**: the agent sends mail (replies, proactive messages) only to the
+  M365 tenant's own verified domains.
 * **Sponsor** assigned to blueprint and agent identity; Conditional Access applies to agent identity.
 * **Observability**: every turn emits an `invoke_agent` root span → visible in Defender,
   Purview and M365 admin center (needs ≥1 user with E7 or Agent 365 license).
 * **Inbound validation**: Agents SDK JWT validation of every activity; tenant ID taken from token.
-* Public GitHub repo: contains tenant IDs (not secrets) but **never** credentials or generated
-  config (`a365.generated.config.json` is git-ignored).
+* Public GitHub repo: contains **no** tenant or subscription IDs, credentials or generated config.
+  IDs live in a local `.env` and in GitHub Actions secrets; `a365.config.json` and
+  `a365.generated.config.json` are git-ignored.
 
 ## 7. Multitenancy
 
@@ -215,6 +229,9 @@ Region: Switzerland North for compute; Azure OpenAI in a region offering the cho
 | AD-02 | Azure OpenAI in Foundry | Stays in backend tenant, RBAC via MI, EU data residency. |
 | AD-03 | Agentic-User mode (AI teammate) | Required for own mailbox, Teams presence, email notifications. Tenant is Frontier-enabled. |
 | AD-04 | Work IQ MCP for mail & files instead of raw Graph | Admin-governed tools, showcases Agent 365 tooling; Copilot licenses available. |
-| AD-05 | Multitenant blueprint in backend tenant, FIC to MI | True ISV pattern, no secrets. Fallback: single-tenant blueprint in M365 tenant. |
-| AD-06 | App Service over Container Apps | Simplest always-on HTTPS host for a demo. |
+| AD-05 | Blueprint in the M365 tenant (multitenant flag), secret in Key Vault → later cross-tenant MI FIC | Agent 365 is enabled only in the M365 tenant; the CLI creates the blueprint there (Phase 0 finding). |
+| AD-06 | App Service over Container Apps | Simplest always-on HTTPS host for a demo (confirmed by the sponsor). |
 | AD-07 | `needDeployment: false`, infra via Bicep | Azure resources live in a different tenant than the agent registration. |
+| AD-08 | Reuse existing Azure OpenAI account `dsc-p1-model-eo3aez4xziljo` | Sponsor decision; add a dedicated deployment instead of a new account. |
+| AD-09 | Reactive **and** proactive behaviour | Sponsor decision: welcome mail on install, follow-up mails. |
+| AD-10 | Branch + PR per phase | Sponsor decision. |

@@ -1,26 +1,30 @@
-# Open Design Questions
+# Design Decisions & Open Questions
 
-## Decided (2026-11-14)
+## Decided
 
-| # | Question | Decision |
-|---|----------|----------|
+| # | Topic | Decision |
+|---|-------|----------|
 | D1 | Stack | .NET 10 |
-| D2 | LLM | Azure OpenAI in Foundry (backend tenant) |
-| D3 | Frontier / licensing | The M365 tenant is Frontier-enabled with Copilot licenses → Agentic-User mode + Work IQ MCP |
-| D4 | Repository | `fiddi/agent365-demo`, public |
+| D2 | LLM | Azure OpenAI – existing account `dsc-p1-model-eo3aez4xziljo`, new deployment `agent365-chat` |
+| D3 | Licensing | M365 tenant is Frontier-enabled; Agent 365, Copilot and Office E5 seats available |
+| D4 | Repository | `fiddi/agent365-demo`, public, **no IDs committed** (`.env` + GitHub secrets) |
+| D5 | Naming | `dsc-p1-<type>-agent365`, Switzerland North |
+| D6 | Hosting | Azure App Service (Linux) |
+| D7 | Sponsor | `dsc@fiddi.ch` (Global Administrator in the M365 tenant) |
+| D8 | Agent | "Ava", `ava@fiddi.ch`, answers in the sender's language |
+| D9 | Files | New SharePoint site "Agent365 Demo" with sample documents |
+| D10 | Email | Agent sends mail (replies + proactive) to internal domains only |
+| D11 | Behaviour | Reactive and proactive (welcome mail on install, follow-ups) |
+| D12 | CI/CD | GitHub Actions with OIDC into the backend tenant; IDs as repository secrets |
+| D13 | Conditional Access | Demo policy for the agent identity in report-only mode |
+| D14 | Git workflow | Branch + PR per phase |
+| D15 | Stop points | None besides interactive admin sign-ins |
+| D16 | Identity placement | Blueprint in M365 tenant; secret in Key Vault, then FIC (see architecture §3) |
 
-## Still open
+## Open / risks
 
-| # | Question | Proposed default |
-|---|----------|------------------|
-| Q1 | Azure subscription to use? | Stored locally in `.env` (`AZURE_SUBSCRIPTION_ID`), never committed |
-| Q2 | Azure region for compute and for Azure OpenAI? | Switzerland North (compute) / Sweden Central (AOAI, broad model availability) |
-| Q3 | Which model? | `gpt-4.1` (cost-effective, tool calling) – or `gpt-5-mini` if available in region |
-| Q4 | Agent name, UPN and persona? | "Ava – Demo Agent", `ava@<m365-domain>`, friendly assistant tone |
-| Q5 | Who is sponsor of the blueprint / agent identity? | Project owner (user account in the M365 tenant) |
-| Q6 | Which SharePoint site / OneDrive does the agent read files from? | One dedicated demo SharePoint site shared with the agent user |
-| Q7 | Email guardrail: who may the agent send mail to? | Only internal domains of the M365 tenant |
-| Q8 | Should the agent proactively email (e.g. daily digest) or only react? | React only (simpler) |
-| Q9 | Is a second customer tenant available to demonstrate multitenancy? | Not in scope v1 |
-| Q10 | Hosting: App Service OK, or prefer Container Apps / AKS? | App Service |
-| Q11 | Identity variant: multitenant blueprint in the backend tenant (preferred) vs. single-tenant blueprint in the M365 tenant | Decided by Phase 0 spike |
+| # | Item | Mitigation |
+|---|------|-----------|
+| R1 | No free Teams license in the M365 tenant (Teams EEA 2/2 used). The agent user may need one for Teams presence. | Check whether Agent 365 / Copilot licensing covers agent users; otherwise free up or buy one Teams seat. |
+| R2 | Cross-tenant FIC on an agent blueprint is not documented. | Keep the Key Vault secret if FIC is rejected. |
+| R3 | Work IQ MCP is in preview. | Fall back to Microsoft Graph calls for mail/files if a server is unavailable. |
