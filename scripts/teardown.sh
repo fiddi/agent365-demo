@@ -23,7 +23,13 @@ run() { if $YES; then echo "+ $*"; "$@"; else echo "DRY: $*"; fi; }
 graph() { # method url  (admin token for the M365 tenant)
   local tok; tok=$(az account get-access-token --resource-type ms-graph --query accessToken -o tsv)
   if $YES; then
-    curl -s -o /dev/null -w "  -> HTTP %{http_code}\n" -X "$1" -H "Authorization: Bearer $tok" "$2"
+    local code
+    code=$(curl -sS -o /dev/null -w "%{http_code}" -X "$1" -H "Authorization: Bearer $tok" "$2")
+    echo "  -> HTTP $code"
+    case "$code" in
+      2??|404) ;;   # deleted, or already gone
+      *) echo "ABORT: $1 ${2%%\?*} failed (HTTP $code) – nothing further is deleted." >&2; exit 1;;
+    esac
   else
     echo "DRY: $1 ${2%%\?*}"
   fi
@@ -39,7 +45,7 @@ G=https://graph.microsoft.com
 graph DELETE "$G/v1.0/users/${AGENT_UPN}"                                   # agent user (soft-deleted 30 days)
 [ -n "${A365_AGENT_ID:-}" ] && graph DELETE "$G/beta/servicePrincipals/${A365_AGENT_ID}"   # agent identity
 tok=$(az account get-access-token --resource-type ms-graph --query accessToken -o tsv)
-gid=$(curl -s -H "Authorization: Bearer $tok" "$G/v1.0/groups?\$filter=mailNickname%20eq%20'agent365demo'&\$select=id" \
+gid=$(curl -sS --fail -H "Authorization: Bearer $tok" "$G/v1.0/groups?\$filter=mailNickname%20eq%20'agent365demo'&\$select=id" \
       | python -I -c "import json,sys;v=json.load(sys.stdin).get('value',[]);print(v[0]['id'] if v else '')")
 [ -n "$gid" ] && graph DELETE "$G/v1.0/groups/$gid"                          # demo SharePoint site (group, soft-deleted)
 if $YES; then (cd "$root/src/DemoAgent" && a365 cleanup blueprint -y); else echo "DRY: a365 cleanup blueprint -y   (blueprint app + SP + secrets)"; fi
