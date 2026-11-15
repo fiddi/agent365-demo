@@ -235,3 +235,5 @@ Region: **Switzerland North** for everything. Tags: `workload=agent365`, `enviro
 | AD-08 | Reuse existing Azure OpenAI account `dsc-p1-model-eo3aez4xziljo` | Sponsor decision; add a dedicated deployment instead of a new account. |
 | AD-09 | Reactive **and** proactive behaviour | Sponsor decision: welcome mail on install, follow-up mails. |
 | AD-10 | Branch + PR per phase | Sponsor decision. |
+| AD-11 | Agent identity + agent user created via Microsoft Graph (`scripts/create-agent-user.py`) | Admin center activation blocked by a SKU mismatch in the default policy template (R4); support ticket open. |
+| AD-12 | No Conditional Access policy for the agent identity in this tenant | No Entra ID P1/P2 (R5); report-only policy script kept for tenants that have it. |

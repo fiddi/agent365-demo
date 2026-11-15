@@ -84,10 +84,16 @@ the cross-tenant identity setup before any real code is written.
 
 ## Phase 5 – Observability & governance (0.5 d)
 
-- [ ] Agent 365 observability exporter (`instrument-observability` skill); `invoke_agent` root span.
-- [ ] Verify spans in Defender, Purview, M365 admin center; App Insights dashboards.
-- [ ] Sponsor, Conditional Access policy demo (e.g. block agent identity outside working hours).
-- [ ] Validate with Agent 365 validation checklist / `a365-code-validator`.
+- [x] Agent 365 observability exporter enabled (`EnableAgent365Exporter=true`, S2S route, app-only token for the
+      agent identity via the blueprint). Fix: the provider reads `Agent365Observability:BlueprintClientSecret`
+      (was set as `ClientSecret`). Token acquisition for the observability resource verified.
+- [ ] Verify spans in the M365 admin center (Agents → Ava → Activity) after the next real email turn.
+- [x] Sponsor: `dsc@fiddi.ch` on the agent identity.
+- [ ] ~~Conditional Access (report-only) for the agent identity~~ – **skipped**: the tenant has no Entra ID P1/P2;
+      Graph returns 403 "tenant is not licensed" (the Agent 365 plan `ENTRA_CONDITIONAL_ACCESS_FOR_AGENTS` alone is
+      not enough). `scripts/create-ca-policy.py` is ready (report-only, block on medium/high agent risk) for tenants
+      with P1/P2 – see R5.
+- [ ] Optional: `a365-code-validator` skill against the observability code.
 
 ## Phase 6 – Demo hardening (0.5 d)
 
