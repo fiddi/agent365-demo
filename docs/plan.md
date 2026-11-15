@@ -97,9 +97,11 @@ the cross-tenant identity setup before any real code is written.
 
 ## Phase 6 – Demo hardening (0.5 d)
 
-- [ ] Demo script (`docs/demo-script.md`): 5-minute walkthrough of C1–C6.
-- [ ] Seed files in a SharePoint site for the "summarise the deck" scenario.
-- [ ] Teardown script (`a365 cleanup`, `az group delete`).
+- [x] Demo script `docs/demo-script.md` (identity, email, files + language, guardrails incl. prompt injection,
+      governance/observability; Teams/Copilot optional).
+- [x] Seed files in the SharePoint site "Agent365 Demo" (done in Phase 3, `demo/sample-docs`).
+- [x] `scripts/teardown.sh` – dry run by default; `--yes` deletes agent user, agent identity, demo group,
+      blueprint (`a365 cleanup blueprint`), model deployment and resource group; `--github` removes the environment.
 
 ## Optional / later
 
