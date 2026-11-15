@@ -67,9 +67,20 @@ the cross-tenant identity setup before any real code is written.
 
 ## Phase 4 – Publish to Teams & Copilot (0.5 d)
 
-- [ ] Configure blueprint in Developer Portal (messaging, Teams & email channels).
-- [ ] `a365 publish` → app package; upload in M365 admin center; make available in Copilot agent store.
-- [ ] **C5** Verify agent can be added and used in M365 Copilot.
+- [x] `a365 publish` → package (manifest branded "Ava", developer = this repo); uploaded in the M365 admin center.
+- [x] Developer Portal: notification URL = `https://<app>/api/messages` (already registered by the CLI).
+- [ ] ~~Activate agent / approve instance in admin center~~ – **blocked by an admin center bug**: the default policy
+      template requires ProductSkuId `304b93a3-…` (not in Microsoft's public SKU list), the tenant owns Agent 365 SKU
+      `796a6fb4-…` (AGENT_365); the custom template wizard does not recognise it either. Microsoft support ticket open.
+- [x] **Workaround via Microsoft Graph** – `scripts/create-agent-user.py` (idempotent):
+      agent identity "Ava" (created by the blueprint), agent user `ava@fiddi.ch` (admin token), and delegated consents
+      mirrored from the blueprint plus `Tools.ListInvoke.All` (all Work IQ MCP servers) and Graph `User.Read`.
+      Licenses assigned via Graph: Agent 365, Office 365 E5 (no Teams), M365 Copilot. Ava added to the demo group.
+- [x] Fix: `ServiceConnection` scope must be the Messaging Bot API (`5a807f24-…/.default`), not the blueprint ID.
+- [x] Fix: sample transcript logger removed (crashed on `EmailResponse`, wrote PII to disk); loop guard for own mails,
+      auto-replies and bounces.
+- [x] **C1–C3 verified:** email from an internal user → Ava reads the SharePoint document → exactly one reply.
+- [ ] **C4/C5** Teams chat and M365 Copilot – need a Teams license for Ava and/or the admin center activation (R1, R4).
 
 ## Phase 5 – Observability & governance (0.5 d)
 
