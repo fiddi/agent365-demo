@@ -15,19 +15,35 @@ Tenant and subscription IDs are **not** stored in this repo. Copy `.env.example`
 ## Docs
 
 - [Solution architecture](docs/architecture.md)
-- [Implementation plan](docs/plan.md)
-- [Open design questions](docs/open-questions.md)
+- [Implementation plan](docs/plan.md) – status per phase
+- [Open design questions, decisions and risks](docs/open-questions.md)
+- [Demo script](docs/demo-script.md) – ~10-minute walkthrough
 
-## Repository layout (target)
+## Repository layout
 
 ```
-docs/                 architecture, plan, decisions
-infra/                Bicep for the backend tenant (Phase 1)
-src/DemoAgent/        .NET 10 agent backend (Phase 2+)
-a365.config.sample.json
-.github/workflows/    infra + app deployment via OIDC
+docs/                    architecture, plan, decisions, demo script
+infra/                   Bicep (subscription scope) + deploy.sh (reads .env)
+src/DemoAgent/           .NET 10 agent backend (Agents SDK, Agent Framework, Work IQ MCP)
+scripts/
+  create-agent-user.py   agent identity + agent user + consents via Graph (admin center workaround)
+  create-ca-policy.py    report-only Conditional Access policy for the agent identity (needs Entra ID P1/P2)
+  teardown.sh            removes everything (dry run by default)
+demo/sample-docs/        documents for the "Agent365 Demo" SharePoint site
+.githooks/               pre-commit guard against tenant/subscription IDs and secrets
+.github/workflows/       CI (build, Bicep, ID check) and deploy via OIDC
 ```
 
 ## Status
 
-Design phase. No code deployed yet.
+| Capability | Status |
+|---|---|
+| Own identity (blueprint, agent identity, agent user with mailbox) | ✅ (agent user created via Graph – admin center activation blocked, R4) |
+| Receive and answer email | ✅ |
+| Read files from SharePoint/OneDrive (Work IQ MCP) | ✅ |
+| Send email, internal domains only (enforced in code) | ✅ |
+| Agent 365 observability exporter | ✅ enabled, admin center view not yet verified |
+| Teams chat / Microsoft 365 Copilot | ⏳ needs a Teams license and the admin center activation |
+| Conditional Access for the agent | ⏸ skipped – tenant has no Entra ID P1/P2 (R5) |
+
+Setup: `git config core.hooksPath .githooks`, copy `.env.example` to `.env`, then follow [docs/plan.md](docs/plan.md).

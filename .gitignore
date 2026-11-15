@@ -14,3 +14,7 @@ obj/
 appsettings.Development.json
 .vscode/
 .idea/
+
+# a365 publish output (contains blueprint IDs)
+src/DemoAgent/manifest/
+*manifest.zip

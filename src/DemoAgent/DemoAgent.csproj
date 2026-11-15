@@ -35,4 +35,12 @@
 	  <Folder Include="msteams\" />
 	</ItemGroup>
 
+	<!-- Local-only settings and CLI state (contain IDs/secrets) must never be published -->
+	<ItemGroup>
+	  <Content Update="appsettings.Development.json;appsettings.local.json;a365.config.json;a365.generated.config.json" CopyToPublishDirectory="Never" />
+	  <None Update="a365.config.json;a365.generated.config.json" CopyToPublishDirectory="Never" />
+	  <Content Update="manifest\**" CopyToPublishDirectory="Never" />
+	  <None Update="manifest\**" CopyToPublishDirectory="Never" />
+	</ItemGroup>
+
 </Project>

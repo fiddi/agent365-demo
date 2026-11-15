@@ -1,0 +1,44 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths: ['src/**', '.github/workflows/deploy.yml']
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency: deploy-demo
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: demo
+    env:
+      WEBAPP: dsc-p1-app-agent365
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Publish
+        run: dotnet publish src/DemoAgent -c Release -o ${{ runner.temp }}/app
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.WEBAPP }}
+          package: ${{ runner.temp }}/app
+      - name: Health check
+        run: |
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://${WEBAPP}.azurewebsites.net/api/health || true)
+            [ "$code" = "200" ] && echo "healthy" && exit 0
+            sleep 15
+          done
+          echo "health check failed"; exit 1

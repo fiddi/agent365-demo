@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build agent
+        run: dotnet build src/DemoAgent -c Release
+      - name: Build Bicep
+        run: az bicep build -f infra/main.bicep --stdout > /dev/null
+      - name: No environment GUIDs in appsettings.json
+        run: |
+          # Public Microsoft app IDs (e.g. Messaging Bot API) are allowed – see .githooks/public-ids
+          found=$(grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' src/DemoAgent/appsettings.json \
+            | grep -viFf <(grep -v '^#' .githooks/public-ids) || true)
+          if [ -n "$found" ]; then
+            echo "appsettings.json must only contain placeholders or public Microsoft app IDs:"; echo "$found"; exit 1
+          fi

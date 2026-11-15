@@ -28,3 +28,5 @@
 | R1 | No free Teams license in the M365 tenant (Teams EEA 2/2 used). The agent user may need one for Teams presence. | Check whether Agent 365 / Copilot licensing covers agent users; otherwise free up or buy one Teams seat. |
 | R2 | Cross-tenant FIC on an agent blueprint is not documented. | Keep the Key Vault secret if FIC is rejected. |
 | R3 | Work IQ MCP is in preview. | Fall back to Microsoft Graph calls for mail/files if a server is unavailable. |
+| R4 | Admin center agent activation rejects the Agent 365 SKU (default template expects `304b93a3-…`). | Graph workaround (`scripts/create-agent-user.py`); Microsoft support ticket. The 25-seat Agent 365 trial ends 2026-11-17 – keep Ava on a paid seat. |
+| R5 | Conditional Access for the agent identity needs Entra ID P1 (P2 for agent risk); the tenant has neither. | Decision 2026-11-15: skip for the demo. Run `scripts/create-ca-policy.py` once P1/P2 is available (report-only first). |

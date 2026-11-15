@@ -48,6 +48,13 @@ builder.UseMicrosoftOpenTelemetry(o =>
 
 builder.Services.AddControllers();
 builder.Services.AddHttpClient("WebClient", client => client.Timeout = TimeSpan.FromSeconds(600));
+
+// Optional diagnostics: log grant_type/scope of failed token requests (no secrets).
+if (builder.Configuration.GetValue<bool>("Diagnostics:LogTokenScopes"))
+{
+    builder.Services.AddTransient<DemoAgent.Diagnostics.TokenScopeLoggingHandler>();
+    builder.Services.AddHttpClient("MSALClientFactory").AddHttpMessageHandler<DemoAgent.Diagnostics.TokenScopeLoggingHandler>();
+}
 builder.Services.AddHttpContextAccessor();
 builder.Logging.AddConsole();
 
@@ -100,8 +107,10 @@ builder.Services.AddSingleton<IChatClient>(sp => {
         .Build(); 
 });
 
-// Uncomment to add transcript logging middleware to log all conversations to files
-builder.Services.AddSingleton<Microsoft.Agents.Builder.IMiddleware[]>([new TranscriptLoggerMiddleware(new FileTranscriptLogger())]);
+// Transcript logging is intentionally disabled: it writes full conversations (incl. email content)
+// to local disk, and it cannot deserialize the A365 EmailResponse entity (the exception text was
+// then sent back to the user as a second email).
+// builder.Services.AddSingleton<Microsoft.Agents.Builder.IMiddleware[]>([new TranscriptLoggerMiddleware(new FileTranscriptLogger())]);
 
 var app = builder.Build();
 
@@ -116,10 +125,16 @@ app.UseAuthorization();
 
 
 // Map the /api/messages endpoint to the AgentApplication
-app.MapPost("/api/messages", async (HttpRequest request, HttpResponse response, IAgentHttpAdapter adapter, IAgent agent, CancellationToken cancellationToken) =>
+var messagesRoute = app.MapPost("/api/messages", async (HttpRequest request, HttpResponse response, IAgentHttpAdapter adapter, IAgent agent, CancellationToken cancellationToken) =>
 {
     await adapter.ProcessAsync(request, response, agent, cancellationToken);
 });
+
+// Outside local testing, only accept JWT-authenticated calls from the Agent 365 / Bot channels.
+if (!app.Environment.IsDevelopment() && app.Environment.EnvironmentName != "Playground")
+{
+    messagesRoute.RequireAuthorization();
+}
 
 // Health check endpoint for CI/CD pipelines and monitoring
 app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp = System.DateTime.UtcNow }));
