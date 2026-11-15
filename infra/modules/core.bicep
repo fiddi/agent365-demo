@@ -189,15 +189,15 @@ resource app 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'TokenValidation__Enabled', value: 'true' }
         { name: 'TokenValidation__TenantId', value: a365TenantId }
         { name: 'TokenValidation__Audiences__0', value: blueprintClientId }
-        // Observability (exporter enabled in Phase 5)
+        // Agent 365 observability (S2S exporter, app-only token for the agent identity)
         { name: 'Agent365Observability__TenantId', value: a365TenantId }
         { name: 'Agent365Observability__AgentBlueprintId', value: blueprintClientId }
         { name: 'Agent365Observability__BlueprintClientId', value: blueprintClientId }
         { name: 'Agent365Observability__ClientId', value: blueprintClientId }
-        { name: 'Agent365Observability__ClientSecret', value: kvRef }
+        { name: 'Agent365Observability__BlueprintClientSecret', value: kvRef }
         { name: 'Agent365Observability__AgentId', value: agentId }
         { name: 'Agent365Observability__UseManagedIdentity', value: 'false' }
-        { name: 'EnableAgent365Exporter', value: 'false' }
+        { name: 'EnableAgent365Exporter', value: 'true' }
         { name: 'Agent__Upn', value: agentUpn }
         // State storage
         { name: 'Storage__BlobServiceUri', value: st.properties.primaryEndpoints.blob }
