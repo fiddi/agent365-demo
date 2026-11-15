@@ -84,6 +84,11 @@ def main():
     # 2) Agent user
     st, u = http("GET", f"https://graph.microsoft.com/beta/users/{urllib.parse.quote(upn)}?$select=id,userPrincipalName,identityParentId", adm)
     if st == 200:
+        # The UPN must belong to *this* agent identity, not to an older identity or an ordinary user.
+        if not DRY and u.get("identityParentId") != ai.get("id"):
+            print(f"ABORT: {upn} exists but is not the agent user of identity {short(ai.get('id'))} "
+                  f"(identityParentId={short(u.get('identityParentId')) or 'none'}).")
+            sys.exit(1)
         print("agent user exists:", u["userPrincipalName"])
     elif DRY:
         print("DRY: would create agent user", upn); u = None
@@ -100,34 +105,49 @@ def main():
 
     # 3) Delegated consent for the agent identity: mirror the blueprint's admin grants
     #    (the admin center's "Accept permissions" step normally does this).
+    #    Only tenant-wide (AllPrincipals) admin grants are mirrored; user-specific (Principal)
+    #    grants are never expanded to tenant-wide consent. Any failed read/write aborts before .env is touched.
+    def must(st, res, what):
+        if st >= 300:
+            print(f"ABORT: {what} failed ({st}): {res.get('error', {}).get('message', '')}")
+            sys.exit(1)
+        return res
+
+    def admin_grants(client_id):
+        url = f"https://graph.microsoft.com/v1.0/oauth2PermissionGrants?$filter=clientId eq '{client_id}' and consentType eq 'AllPrincipals'"
+        st, res = http("GET", url.replace(" ", "%20"), adm)
+        return [g for g in must(st, res, "read consent grants").get("value", []) if g.get("consentType") == "AllPrincipals"]
+
     if not DRY:
         st, bpsp = http("GET", f"https://graph.microsoft.com/v1.0/servicePrincipals(appId='{blueprint}')?$select=id", adm)
-        st, bpg = http("GET", f"https://graph.microsoft.com/v1.0/oauth2PermissionGrants?$filter=clientId eq '{bpsp['id']}'".replace(" ", "%20"), adm)
-        st, aig = http("GET", f"https://graph.microsoft.com/v1.0/oauth2PermissionGrants?$filter=clientId eq '{ai['id']}'".replace(" ", "%20"), adm)
-        have = {g["resourceId"] for g in aig.get("value", [])}
-        wanted = {g["resourceId"]: g["scope"].strip() for g in bpg.get("value", [])}
+        must(st, bpsp, "read blueprint service principal")
+        bpg, aig = admin_grants(bpsp["id"]), admin_grants(ai["id"])
+        have = {g["resourceId"] for g in aig}
+        wanted = {g["resourceId"]: g["scope"].strip() for g in bpg}
         # Work IQ MCP servers (public Microsoft app IDs: Mail, OneDrive, SharePoint) all need
         # Tools.ListInvoke.All – the blueprint's Mail grant only has McpServers.Mail.All.
         for app in ("ea9ffc3e-8a23-4a7d-836d-234d7c7565c1", "b0b2a2bb-6361-4549-a00c-a018417eb8e2",
                     "292cff14-c0e8-4116-9e3b-99934ae05766"):
             st, sp = http("GET", f"https://graph.microsoft.com/v1.0/servicePrincipals(appId='{app}')?$select=id", adm)
-            if st == 200:
-                scopes = set(wanted.get(sp["id"], "").split()) | {"Tools.ListInvoke.All"}
-                wanted[sp["id"]] = " ".join(sorted(scopes))
+            must(st, sp, f"read MCP service principal {app[:8]}")
+            scopes = set(wanted.get(sp["id"], "").split()) | {"Tools.ListInvoke.All"}
+            wanted[sp["id"]] = " ".join(sorted(scopes))
         # The Agents SDK also requests Graph User.Read for the agent user (blueprint grant has only User.Read.All).
         st, graph = http("GET", "https://graph.microsoft.com/v1.0/servicePrincipals(appId='00000003-0000-0000-c000-000000000000')?$select=id", adm)
-        if st == 200:
-            wanted[graph["id"]] = " ".join(sorted(set(wanted.get(graph["id"], "").split()) | {"User.Read"}))
-        for g in aig.get("value", []):
+        must(st, graph, "read Microsoft Graph service principal")
+        wanted[graph["id"]] = " ".join(sorted(set(wanted.get(graph["id"], "").split()) | {"User.Read"}))
+        for g in aig:
             missing = set(wanted.get(g["resourceId"], "").split()) - set(g["scope"].split())
             if missing:
-                st, _ = http("PATCH", f"https://graph.microsoft.com/v1.0/oauth2PermissionGrants/{g['id']}", adm,
-                             {"scope": " ".join(sorted(set(g["scope"].split()) | missing))})
+                st, res = http("PATCH", f"https://graph.microsoft.com/v1.0/oauth2PermissionGrants/{g['id']}", adm,
+                               {"scope": " ".join(sorted(set(g["scope"].split()) | missing))})
+                must(st, res, f"update grant {short(g['resourceId'])}")
                 print("grant update", short(g["resourceId"]), st)
         for rid, scope in wanted.items():
             if rid in have: continue
-            st, _ = http("POST", "https://graph.microsoft.com/v1.0/oauth2PermissionGrants", adm,
-                         {"clientId": ai["id"], "consentType": "AllPrincipals", "resourceId": rid, "scope": scope})
+            st, res = http("POST", "https://graph.microsoft.com/v1.0/oauth2PermissionGrants", adm,
+                           {"clientId": ai["id"], "consentType": "AllPrincipals", "resourceId": rid, "scope": scope})
+            must(st, res, f"create grant {short(rid)}")
             print("grant", short(rid), st)
 
     # 4) Licenses (assign manually or extend here):

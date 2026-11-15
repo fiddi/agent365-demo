@@ -441,10 +441,9 @@ namespace DemoAgent.Agent
                 _logger?.LogInformation("Ignoring email sent by the agent itself.");
                 return;
             }
-            if (System.Text.RegularExpressions.Regex.IsMatch(email?.HtmlBody ?? string.Empty,
-                    @"(?i)automatic reply|automatische antwort|undeliverable|unzustellbar|delivery has failed"))
+            if (await IsAutomatedMessageAsync(turnContext, email?.Id, cancellationToken))
             {
-                _logger?.LogInformation("Ignoring auto-reply / bounce.");
+                _logger?.LogInformation("Ignoring auto-reply / delivery report.");
                 return;
             }
 
@@ -469,6 +468,49 @@ namespace DemoAgent.Agent
             }
 
             await turnContext.SendActivityAsync(EmailResponse.CreateEmailResponseActivity(replyHtml), cancellationToken);
+        }
+
+        private static readonly HttpClient GraphHttp = new() { Timeout = TimeSpan.FromSeconds(15) };
+
+        /// <summary>
+        /// Classifies out-of-office replies and delivery reports by their RFC 3834 / DSN metadata
+        /// (Auto-Submitted, Precedence, multipart/report, Exchange NDR headers) read from the message
+        /// in the agent's own mailbox – not by body text. Returns false if the headers can't be read.
+        /// </summary>
+        private async Task<bool> IsAutomatedMessageAsync(ITurnContext turnContext, string? messageId, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrEmpty(messageId) || string.IsNullOrEmpty(AgenticAuthHandlerName) || !turnContext.IsAgenticRequest())
+                return false;
+            try
+            {
+                var token = await UserAuthorization.GetTurnTokenAsync(turnContext, AgenticAuthHandlerName, cancellationToken: cancellationToken);
+                using var req = new HttpRequestMessage(HttpMethod.Get,
+                    $"https://graph.microsoft.com/v1.0/me/messages/{Uri.EscapeDataString(messageId)}?$select=internetMessageHeaders");
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                using var res = await GraphHttp.SendAsync(req, cancellationToken);
+                if (!res.IsSuccessStatusCode)
+                {
+                    _logger?.LogDebug("Could not read message headers ({Status}).", (int)res.StatusCode);
+                    return false;
+                }
+                using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(cancellationToken));
+                if (!doc.RootElement.TryGetProperty("internetMessageHeaders", out var headers)) return false;
+                foreach (var h in headers.EnumerateArray())
+                {
+                    var name = h.GetProperty("name").GetString() ?? string.Empty;
+                    var value = h.GetProperty("value").GetString() ?? string.Empty;
+                    if (name.Equals("Auto-Submitted", StringComparison.OrdinalIgnoreCase) && !value.Trim().Equals("no", StringComparison.OrdinalIgnoreCase)) return true;
+                    if (name.Equals("Precedence", StringComparison.OrdinalIgnoreCase) && value.Contains("auto", StringComparison.OrdinalIgnoreCase)) return true;
+                    if (name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase) && value.Contains("multipart/report", StringComparison.OrdinalIgnoreCase)) return true;
+                    if (name.Equals("X-MS-Exchange-Message-Is-Ndr", StringComparison.OrdinalIgnoreCase)) return true;
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogDebug(ex, "Auto-reply classification failed; treating message as normal.");
+                return false;
+            }
         }
 
         /// <summary>Runs the agent (with tools) for a single, non-streamed turn and returns its text.</summary>
