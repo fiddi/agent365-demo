@@ -7,7 +7,7 @@ namespace Agent365.Samples.Observability;
 
 /// <summary>
 /// Resolves Agent 365 observability tokens for every agent instance created from the blueprint
-/// (e.g. "Ava" and "Kwema Manseh"). Keeps one <see cref="ObservabilityAppTokenProvider"/> per agent
+/// (e.g. "Ava" and "Peter Helfer"). Keeps one <see cref="ObservabilityAppTokenProvider"/> per agent
 /// identity; each provider gets an app-only token for exactly that identity via the shared blueprint
 /// credential. Exports for other tenants are rejected.
 /// </summary>

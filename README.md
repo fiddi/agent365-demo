@@ -40,7 +40,7 @@ demo/sample-docs/        documents for the "Agent365 Demo" SharePoint site
 |---|---|
 | Own identity (blueprint, agent identity, agent user with mailbox) | ✅ (agent user created via Graph – admin center activation blocked, R4) |
 | Receive and answer email | ✅ |
-| Several instances of one blueprint (e.g. "Ava", "Kwema Manseh"), each with own name, mailbox and telemetry | ✅ (`scripts/create-agent-user.py --name … --upn …`) |
+| Several instances of one blueprint (e.g. "Ava", "Peter Helfer"), each with own name, mailbox and telemetry | ✅ (`scripts/create-agent-user.py --name … --upn …`) |
 | Read files from SharePoint/OneDrive (Work IQ MCP) | ✅ |
 | Send email, internal domains only (enforced in code) | ✅ |
 | Agent 365 observability exporter | ✅ enabled, admin center view not yet verified |
