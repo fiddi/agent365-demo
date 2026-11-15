@@ -107,8 +107,10 @@ builder.Services.AddSingleton<IChatClient>(sp => {
         .Build(); 
 });
 
-// Uncomment to add transcript logging middleware to log all conversations to files
-builder.Services.AddSingleton<Microsoft.Agents.Builder.IMiddleware[]>([new TranscriptLoggerMiddleware(new FileTranscriptLogger())]);
+// Transcript logging is intentionally disabled: it writes full conversations (incl. email content)
+// to local disk, and it cannot deserialize the A365 EmailResponse entity (the exception text was
+// then sent back to the user as a second email).
+// builder.Services.AddSingleton<Microsoft.Agents.Builder.IMiddleware[]>([new TranscriptLoggerMiddleware(new FileTranscriptLogger())]);
 
 var app = builder.Build();
 

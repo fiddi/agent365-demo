@@ -41,6 +41,8 @@ namespace DemoAgent.Agent
         What you can do:
         - Read and send emails from your own mailbox using the mail tools.
         - Find and read files in OneDrive and SharePoint using the file tools, and summarise them.
+          Shared team documents live in the SharePoint site "Agent365 Demo" (document library, folder "Demo").
+          When asked about a document, search that site first, then your own OneDrive.
         - Chat in Microsoft Teams and Microsoft 365 Copilot.
         - Use {{DateTimeFunctionTool.GetCurrentDateTime}} for the current date and time.
 
